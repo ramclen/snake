@@ -79,24 +79,89 @@ class Snake {
     }
 }
 
+class Food{
+    constructor(){
+        this.pos = new Vec();
+        this.isEaten = false;
+    }
+}
+
+
+function getRandomPosition(xMax, yMax) {
+    return new Vec(Math.floor(Math.random() * xMax),Math.floor(Math.random() * yMax))
+}
+
+class World{
+    constructor(xMax, yMax){
+        this.xMax = xMax;
+        this.yMax = yMax;
+        this.snake = new Snake(this.xMax/2, this.yMax/2);
+        this.matrix = new Matrix();
+        this.food = new Food();
+        this._setFoodLocation(this.food);
+    }
+
+    _setFoodLocation(food){
+        do{
+            food.pos = getRandomPosition(this.xMax, this.yMax);
+        }while(this.snake.pos.x == food.pos.x || this.snake.pos.y == food.pos.y);
+    }
+
+    update(deltaTime){
+        this.matrix.fill(this.xMax, this.yMax, "#fff3d3");
+        this.matrix.set(this.snake.pos.x, this.snake.pos.y, "#000");
+
+        if(this.food.isEaten){
+            this._setFoodLocation(this.food);
+        }
+
+        this.matrix.set(this.food.pos.x, this.food.pos.y, "#000")
+        this.snake.update(deltaTime);
+    }
+
+    draw(){
+        this.matrix.forEach((element, x, y) => {
+            context.fillStyle = element;
+            context.fillRect(x * 20, y * 20, 20, 20);
+        })
+    }
+}
+
+function keyboardSetup(entity) {
+
+    const actions = new Map();
+    actions.set("ArrowDown", ()  => {
+        entity.vel.y = entity.vel.y || 1;
+        entity.vel.x = 0;
+    });
+    actions.set("ArrowUp", () => {
+        entity.vel.y = entity.vel.y||-1
+        entity.vel.x = 0;
+    });
+    actions.set("ArrowRight", () => {
+        entity.vel.x = entity.vel.x || 1;
+        entity.vel.y = 0;
+    });
+    actions.set("ArrowLeft", () => {
+        entity.vel.x = entity.vel.x || -1;
+        entity.vel.y = 0;
+    });
+
+    return event=> {
+        if(actions.has(event.key))
+            actions.get(event.key)();
+    }
+}
+
+
 const yMax = canvas.height / 20;
 const xMax = canvas.width / 20;
-const matrix = new Matrix();
-const snake = new Snake(xMax/2, yMax/2);
-snake.vel.y = 1;
-
-function update(deltaTime) {
-    matrix.fill(xMax, yMax, "#fff3d3");
-    matrix.set(snake.pos.x, snake.pos.y, "#000");
-
-    snake.update(deltaTime);
-
-    matrix.forEach((element, x, y) => {
-        context.fillStyle = element;
-        context.fillRect(x * 20, y * 20, 20, 20);
-    })
-};
+const world = new World(xMax, yMax);
+document.addEventListener('keydown', keyboardSetup(world.snake))
 
 
 
-new Timer(1, update);
+new Timer(0.1, (deltaTime) => {
+    world.update(deltaTime);
+    world.draw();
+});
