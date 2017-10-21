@@ -72,17 +72,43 @@ class Snake {
     constructor(x, y){
         this.pos = new Vec(x, y);
         this.vel = new Vec;
+        this._velocities = [this.vel];
+        this.body = [this];
+        this._stomach = [];
+    }
+    //TODO Cada parte del cuerpo tiene 1 velocidad
+    //TODO Como incrementar el cuerpo e ir moviendolo dejando el ultimo cuerpo al final
+    update(deltaTime){
+        this._digest();
+
+        this._velocities.unshift(new Vec(this.vel.x, this.vel.y));
+        this._velocities.splice(this.body.length);
+
+        this._velocities.forEach((velocity, index) => {
+            this.body[index].pos.add(velocity);
+        })
+
     }
 
-    update(deltaTime){
-        this.pos.add(this.vel);
+    _digest(){
+        if(this._stomach.length != 0)
+            if(this.body.filter((body)=>{
+                return this._stomach[0].pos.x == body.pos.x
+                    && this._stomach[0].pos.y == body.pos.y;
+            }).length == 0){
+                this.body.push(this._stomach.shift());
+
+            }
+    }
+
+    swallow(food) {
+        this._stomach.push(food);
     }
 }
 
 class Food{
     constructor(){
         this.pos = new Vec();
-        this.isEaten = false;
     }
 }
 
@@ -97,26 +123,33 @@ class World{
         this.yMax = yMax;
         this.snake = new Snake(this.xMax/2, this.yMax/2);
         this.matrix = new Matrix();
-        this.food = new Food();
-        this._setFoodLocation(this.food);
+        this.food = this._setFoodLocation();
     }
 
-    _setFoodLocation(food){
+    _setFoodLocation(){
+        let food = new Food();
         do{
             food.pos = getRandomPosition(this.xMax, this.yMax);
         }while(this.snake.pos.x == food.pos.x || this.snake.pos.y == food.pos.y);
+        return food;
     }
 
     update(deltaTime){
         this.matrix.fill(this.xMax, this.yMax, "#fff3d3");
-        this.matrix.set(this.snake.pos.x, this.snake.pos.y, "#000");
 
-        if(this.food.isEaten){
-            this._setFoodLocation(this.food);
-        }
+        this.snake.body.forEach(body=>{
+            this.matrix.set(body.pos.x, body.pos.y, "#000");
+        })
 
         this.matrix.set(this.food.pos.x, this.food.pos.y, "#000")
         this.snake.update(deltaTime);
+
+        if(this.food.pos.x == this.snake.pos.x){
+            if(this.food.pos.y == this.snake.pos.y){
+                this.snake.swallow(this.food);
+                this.food = this._setFoodLocation(this.food);
+            }
+        }
     }
 
     draw(){
