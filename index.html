@@ -3,8 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <title>Snake</title>
+    <style>
+        #gameover-screen {
+            position: absolute;
+            visibility: hidden;
+            height: 600px;
+            width: 600px;
+            background-color: rgba(82, 82, 82, 0.4);
+        }
+    </style>
 </head>
 <body>
+    <p>Score: <u id="score">0</u></p>
+    <div id="gameover-screen">
+        <div>
+            <h2>Game Over</h2>
+            <h4>Space to restart</h4>
+        </div>
+    </div>
     <canvas id="screen" height="600" width="600"></canvas>
     <script src="snake.js"></script>
 </body>

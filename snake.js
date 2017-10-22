@@ -69,8 +69,9 @@ class Matrix{
 }
 
 class SnakeCollider{
-    constructor(snake){
+    constructor(snake, maxPos){
         this.snake = snake;
+        this.maxPos = maxPos;
     }
 
     foodCaptured(food){
@@ -89,6 +90,13 @@ class SnakeCollider{
         }, false)
     }
 
+    crashIntoBorder(){
+        return this.snake.pos.x >= this.maxPos.x
+                || this.snake.pos.y >= this.maxPos.y
+                || this.snake.pos.y < 0
+                || this.snake.pos.x < 0
+    }
+
     underBody(pos){
         return this.snake.body.reduce((previous, body) =>
             previous || this._positionUnderSnake(pos, body)
@@ -102,7 +110,7 @@ class SnakeCollider{
 }
 
 class Snake {
-    constructor(x, y){
+    constructor(x=0, y=0){
         this.body = [new Body(new Vec(x,y), new Vec)];
         this._stomach = [];
     }
@@ -180,8 +188,8 @@ class World{
         this.yMax = yMax;
         this.snake = new Snake(this.xMax/2, this.yMax/2);
         this.matrix = new Matrix();
+        this.collider = new SnakeCollider(this.snake, new Vec(xMax, yMax));
         this.food = this._createFood();
-        this.collider = new SnakeCollider(this.snake);
     }
 
     _createFood(){
@@ -192,23 +200,32 @@ class World{
         return food;
     }
 
+    start(){
+        this.food = this._createFood();
+        this.snake = new Snake(this.xMax/2, this.yMax/2);
+        this.collider = new SnakeCollider(this.snake, new Vec(xMax, yMax));
+    }
+
+    get gameOver(){
+        return this.collider.crash() || this.collider.crashIntoBorder();
+    }
+
     update(deltaTime){
-        this.matrix.fill(this.xMax, this.yMax, "#fff3d3");
+        if(!this.gameOver){
+            this.matrix.fill(this.xMax, this.yMax, "#fff3d3");
 
-        this.snake.body.forEach(body=>{
-            this.matrix.set(body.pos.x, body.pos.y, "#000");
-        })
+            this.snake.body.forEach(body=>{
+                this.matrix.set(body.pos.x, body.pos.y, "#000");
+            })
 
-        this.matrix.set(this.food.pos.x, this.food.pos.y, "#000")
-        this.snake.update(deltaTime);
+            this.matrix.set(this.food.pos.x, this.food.pos.y, "#000")
 
-        if(this.collider.foodCaptured(this.food)){
-            this.food = this._createFood(this.food);
+            this.snake.update(deltaTime);
+
+            if(this.collider.foodCaptured(this.food)){
+                this.food = this._createFood(this.food);
+            }
         }
-        if(this.collider.crash()){
-            this.snake.stop();
-        }
-
     }
 
     draw(){
@@ -219,25 +236,34 @@ class World{
     }
 }
 
-function keyboardSetup(entity) {
+function keyboardSetup(game) {
 
     const actions = new Map();
     actions.set("ArrowDown", ()  => {
-        entity.vel =new Vec(0, entity.vel.y || 1);
+        if(!game.gameOver)
+            game.snake.vel =new Vec(0, game.snake.vel.y || 1);
     });
     actions.set("ArrowUp", () => {
-        entity.vel = new Vec(0, entity.vel.y||-1);
+        if(!game.gameOver)
+            game.snake.vel = new Vec(0, game.snake.vel.y||-1);
     });
     actions.set("ArrowRight", () => {
-        entity.vel = new Vec(entity.vel.x || 1, 0);
+        if(!game.gameOver)
+            game.snake.vel = new Vec(game.snake.vel.x || 1, 0);
     });
     actions.set("ArrowLeft", () => {
-        entity.vel = new Vec(entity.vel.x || -1, 0);
+        if(!game.gameOver)
+            game.snake.vel = new Vec(game.snake.vel.x || -1, 0);
     });
 
+    actions.set("Space", ()=>{
+        if(game.gameOver)
+            game.start();
+    })
+
     return event=> {
-        if(actions.has(event.key))
-            actions.get(event.key)();
+        if(actions.has(event.code))
+            actions.get(event.code)();
     }
 }
 
@@ -245,11 +271,20 @@ function keyboardSetup(entity) {
 const yMax = canvas.height / 20;
 const xMax = canvas.width / 20;
 const world = new World(xMax, yMax);
-document.addEventListener('keydown', keyboardSetup(world.snake))
-
+document.addEventListener('keydown', keyboardSetup(world))
+let score = document.getElementById("score");
+let gameoverScreen = document.getElementById("gameover-screen");
 
 
 new Timer(0.1, (deltaTime) => {
+    if(world.gameOver) gameoverScreen.style['visibility'] = 'visible'
+    else gameoverScreen.style['visibility'] = 'hidden'
+
+    score.textContent = ((world.snake.body.length-1) * 5);
+
     world.update(deltaTime);
     world.draw();
 });
+
+
+//TODO Score, stop and restart
