@@ -68,48 +68,105 @@ class Matrix{
     }
 }
 
+class SnakeCollider{
+    constructor(snake){
+        this.snake = snake;
+    }
+
+    foodCaptured(food){
+        if(food.pos.x == this.snake.pos.x){
+            if(food.pos.y == this.snake.pos.y){
+                this.snake.swallow(food);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    crash(){
+        return this.snake.body.reduce((previous, body, index)=>{
+            return (index != 0) && (previous || this._positionUnderSnake(this.snake.pos, body))
+        }, false)
+    }
+
+    underBody(pos){
+        return this.snake.body.reduce((previous, body) =>
+            previous || this._positionUnderSnake(pos, body)
+            , false)
+    }
+
+    _positionUnderSnake(pos, body) {
+        return (pos.x == body.pos.x
+            && pos.y == body.pos.y);
+    }
+}
+
 class Snake {
     constructor(x, y){
-        this.pos = new Vec(x, y);
-        this.vel = new Vec;
-        this._velocities = [this.vel];
-        this.body = [this];
+        this.body = [new Body(new Vec(x,y), new Vec)];
         this._stomach = [];
     }
-    //TODO Cada parte del cuerpo tiene 1 velocidad
-    //TODO Como incrementar el cuerpo e ir moviendolo dejando el ultimo cuerpo al final
-    update(deltaTime){
-        this._digest();
 
-        this._velocities.unshift(new Vec(this.vel.x, this.vel.y));
-        this._velocities.splice(this.body.length);
-
-        this._velocities.forEach((velocity, index) => {
-            this.body[index].pos.add(velocity);
-        })
-
+    set vel(vel){
+        this.body[0].vel = vel;
     }
 
-    _digest(){
-        if(this._stomach.length != 0)
-            if(this.body.filter((body)=>{
-                return this._stomach[0].pos.x == body.pos.x
-                    && this._stomach[0].pos.y == body.pos.y;
-            }).length == 0){
-                this.body.push(this._stomach.shift());
+    get vel(){
+        return this.body[0].vel;
+    }
 
-            }
+    get pos(){
+        return this.body[0].pos;
+    }
+
+    update(deltaTime){
+        this.body.forEach(bodyPart => {
+            bodyPart.update(deltaTime);
+        })
+
+        this._digest();
+
+        for(let i = this.body.length-1; i>0; i--) {
+            this.body[i].vel  = new Vec(this.body[i-1].vel.x,this.body[i-1].vel.y);
+        }
     }
 
     swallow(food) {
         this._stomach.push(food);
     }
+
+
+    _digest(){
+        if(this._stomach.length != 0)
+            if(!this._underPartBody(this._stomach[0].pos))
+                this.body.push(this._stomach.shift());
+
+    }
+
+    _underPartBody(pos) {
+        return this.body.reduce((previous, body) =>
+            previous || (pos.x == body.pos.x
+                        && pos.y == body.pos.y)
+        , false);
+    }
+
+    stop() {
+        this.body.forEach(body => {
+            body.vel = new Vec();
+        })
+    }
 }
 
-class Food{
-    constructor(){
-        this.pos = new Vec();
+class Body{
+    constructor(pos=new Vec, vel=new Vec){
+        this.pos = pos;
+        this.vel = vel;
     }
+
+    update(deltaTime){
+        this.pos.add(this.vel);
+    }
+
 }
 
 
@@ -123,11 +180,12 @@ class World{
         this.yMax = yMax;
         this.snake = new Snake(this.xMax/2, this.yMax/2);
         this.matrix = new Matrix();
-        this.food = this._setFoodLocation();
+        this.food = this._createFood();
+        this.collider = new SnakeCollider(this.snake);
     }
 
-    _setFoodLocation(){
-        let food = new Food();
+    _createFood(){
+        let food = new Body();
         do{
             food.pos = getRandomPosition(this.xMax, this.yMax);
         }while(this.snake.pos.x == food.pos.x || this.snake.pos.y == food.pos.y);
@@ -144,12 +202,13 @@ class World{
         this.matrix.set(this.food.pos.x, this.food.pos.y, "#000")
         this.snake.update(deltaTime);
 
-        if(this.food.pos.x == this.snake.pos.x){
-            if(this.food.pos.y == this.snake.pos.y){
-                this.snake.swallow(this.food);
-                this.food = this._setFoodLocation(this.food);
-            }
+        if(this.collider.foodCaptured(this.food)){
+            this.food = this._createFood(this.food);
         }
+        if(this.collider.crash()){
+            this.snake.stop();
+        }
+
     }
 
     draw(){
@@ -164,20 +223,16 @@ function keyboardSetup(entity) {
 
     const actions = new Map();
     actions.set("ArrowDown", ()  => {
-        entity.vel.y = entity.vel.y || 1;
-        entity.vel.x = 0;
+        entity.vel =new Vec(0, entity.vel.y || 1);
     });
     actions.set("ArrowUp", () => {
-        entity.vel.y = entity.vel.y||-1
-        entity.vel.x = 0;
+        entity.vel = new Vec(0, entity.vel.y||-1);
     });
     actions.set("ArrowRight", () => {
-        entity.vel.x = entity.vel.x || 1;
-        entity.vel.y = 0;
+        entity.vel = new Vec(entity.vel.x || 1, 0);
     });
     actions.set("ArrowLeft", () => {
-        entity.vel.x = entity.vel.x || -1;
-        entity.vel.y = 0;
+        entity.vel = new Vec(entity.vel.x || -1, 0);
     });
 
     return event=> {
