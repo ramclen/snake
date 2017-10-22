@@ -285,6 +285,3 @@ new Timer(0.1, (deltaTime) => {
     world.update(deltaTime);
     world.draw();
 });
-
-
-//TODO Score, stop and restart
